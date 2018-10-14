@@ -3,12 +3,57 @@ const http = require('http');
 const { ApolloServer, gql } = require('apollo-server-express');
 const express = require('express');
 
-const Query = require("./resolvers/Query");
-const resolvers = {
-  Query: Query
-};
+const { PubSub } = require('apollo-server-express');
+const pubsub = new PubSub();
 
-const typeDefs = gql`${fs.readFileSync(__dirname.concat('/schema.graphql'), 'utf8')}`;
+// const Query = require("./resolvers/Query");
+// const resolvers = {
+//   Query: Query
+// };
+
+// const typeDefs = gql`${fs.readFileSync(__dirname.concat('/schema.graphql'), 'utf8')}`;
+
+const typeDefs = gql`
+type Subscription {
+  postAdded: Post
+}
+type Query {
+  posts: [Post]
+}
+type Mutation {
+  addPost(author: String, comment: String): Post
+}
+type Post {
+  author: String
+  comment: String
+}
+`
+const POST_ADDED = 'POST_ADDED';
+
+var posts = [];
+
+const resolvers = {
+  Subscription: {
+    postAdded: {
+      // Additional event labels can be passed to asyncIterator creation
+      subscribe: () => pubsub.asyncIterator([POST_ADDED]),
+    },
+  },
+  Query: {
+    posts(root, args, context) {
+      return posts
+      // return postController.posts();
+    },
+  },
+  Mutation: {
+    addPost(root, args, context) {
+      pubsub.publish(POST_ADDED, { postAdded: args });
+      posts.push(args)
+      return args
+      // return postController.addPost(args);
+    },
+  },
+};
 
 const PORT = 4000;
 const app = express();
